@@ -1,0 +1,84 @@
+import pandas as pd
+import os
+import tkinter as tk
+from tkinter import filedialog, messagebox
+
+def selecionar_pasta():
+    pasta = filedialog.askdirectory()
+    
+    if not pasta:
+        messagebox.showwarning("Aviso", "Nenhuma pasta selecionada.")
+        return
+    
+    processar(pasta)
+
+def processar(pasta):
+    dados = []
+    arquivos_lidos = 0
+    arquivos_com_erro = 0
+
+    for arquivo in os.listdir(pasta):
+        if arquivo.lower().endswith('.xlsx') and not arquivo.startswith('~$'):
+            caminho = os.path.join(pasta, arquivo)
+
+            try:
+                print(f'📂 Lendo: {arquivo}')
+
+                df = pd.read_excel(
+                    caminho,
+                    engine='openpyxl',
+                    dtype={'APOLICE_SUSEP': str}
+                )
+
+                if df.empty:
+                    print(f'⚠️ Arquivo vazio: {arquivo}')
+                    continue
+
+                if 'APOLICE_SUSEP' in df.columns:
+                    df['APOLICE_SUSEP'] = df['APOLICE_SUSEP'].astype(str)
+
+                df['arquivo_origem'] = arquivo
+
+                dados.append(df)
+                arquivos_lidos += 1
+
+            except Exception as e:
+                print(f'❌ Erro no arquivo {arquivo}: {e}')
+                arquivos_com_erro += 1
+
+    # Resumo
+    print(f'\n📊 Resumo:')
+    print(f'✔️ Arquivos lidos: {arquivos_lidos}')
+    print(f'❌ Arquivos com erro: {arquivos_com_erro}')
+    print(f'📦 DataFrames válidos: {len(dados)}')
+
+    if len(dados) == 0:
+        messagebox.showerror("Erro", "Nenhum dado foi carregado.")
+        return
+
+    print("🔄 Unificando arquivos...")
+
+    df_final = pd.concat(dados, ignore_index=True)
+
+    saida = os.path.join(pasta, 'arquivo_unificado.xlsx')
+
+    print("💾 Salvando arquivo final...")
+
+    try:
+        df_final.to_excel(saida, index=False)
+        messagebox.showinfo("Sucesso", f"Arquivo criado em:\n{saida}")
+    except Exception as e:
+        messagebox.showerror("Erro", f"Erro ao salvar:\n{e}")
+
+# Interface
+janela = tk.Tk()
+janela.title("Unificador de Excel")
+janela.geometry("300x150")
+
+label = tk.Label(janela, text="Selecionar pasta para unificar arquivos")
+label.pack(pady=20)
+
+botao = tk.Button(janela, text="Selecionar Pasta", command=selecionar_pasta)
+botao.pack()
+
+janela.mainloop()
